@@ -1,0 +1,31 @@
+# research.yml — Research + Article workflow
+workflow:
+  steps:
+    - id: research
+      prompt: >-
+        Research the topic "{{topic}}". Provide:
+        1. Key facts and statistics (with numbers)
+        2. Current trends (2025-2026)
+        3. Expert opinions and sources
+        4. Practical applications
+        Format as structured markdown with bullet points.
+      model: auto/best-chat
+      save: output/{{topic}}-research.md
+
+    - id: article
+      prompt: >-
+        Write a compelling blog post (800-1000 words) about "{{topic}}".
+        Use a professional yet engaging tone. Include a hook in the first
+        paragraph, 3-4 main sections, and a conclusion with outlook.
+      model: auto/best-reasoning
+      context_from: research
+      save: output/{{topic}}-article.md
+
+    - id: social
+      prompt: >-
+        Create 5 social media posts about this topic.
+        Each post: 1-2 sentences, include relevant emoji, max 280 chars.
+        Number them 1-5.
+      model: groq/llama-3.1-8b-instant
+      context_from: research
+      save: output/{{topic}}-social.txt

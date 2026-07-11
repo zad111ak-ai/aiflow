@@ -1,0 +1,6 @@
+# hello.yml — Quick test workflow
+workflow:
+  steps:
+    - id: greet
+      prompt: "Say hello in a creative way. Just one short sentence."
+      model: auto/best-chat
