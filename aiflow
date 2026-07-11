@@ -1,7 +1,14 @@
 #!/usr/bin/env python3
 """
 aiflow — AI Workflow Runner
-Run YAML-defined AI pipelines with any model via OmniRoute
+Run YAML-defined AI pipelines with any model via OmniRoute or OpenAI API.
+
+Usage:
+  aiflow run workflow.yml
+  aiflow run research.yml topic="AI agents"
+  aiflow init
+  aiflow examples
+  aiflow donate
 """
 
 import os
@@ -16,40 +23,62 @@ from datetime import datetime
 VERSION = "0.1.0"
 OMNIROUTE_BASE = os.environ.get("OMNIROUTE_BASE_URL", "http://localhost:3000/v1")
 OMNIROUTE_KEY = os.environ.get("OMNIROUTE_API_KEY", "")
+OPENAI_BASE = os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1")
+OPENAI_KEY = os.environ.get("OPENAI_API_KEY", "")
 DEFAULT_MODEL = os.environ.get("AIFLOW_DEFAULT_MODEL", "auto/best-chat")
 
 
 def omni_complete(prompt: str, model: str = None, system: str = None) -> str:
-    """Send a prompt to OmniRoute and get completion (supports streaming)."""
-    url = f"{OMNIROUTE_BASE}/chat/completions"
+    """Send a prompt and get completion. Supports OmniRoute SSE and OpenAI JSON."""
     model = model or DEFAULT_MODEL
 
+    # Route to OmniRoute or OpenAI
+    use_omniroute = not model.startswith("openai/")
+    base_url = OMNIROUTE_BASE if use_omniroute else OPENAI_BASE
+    api_key = OMNIROUTE_KEY if use_omniroute else OPENAI_KEY
+    actual_model = model.replace("openai/", "", 1) if not use_omniroute else model
+
+    url = f"{base_url}/chat/completions"
     messages = []
     if system:
         messages.append({"role": "system", "content": system})
     messages.append({"role": "user", "content": prompt})
 
     headers = {"Content-Type": "application/json"}
-    if OMNIROUTE_KEY:
-        headers["Authorization"] = f"Bearer {OMNIROUTE_KEY}"
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
 
-    resp = requests.post(url, headers=headers, json={
-        "model": model,
+    payload = {
+        "model": actual_model,
         "messages": messages,
         "temperature": 0.7,
         "max_tokens": 4096,
         "stream": False,
-    }, timeout=120)
+    }
+
+    try:
+        resp = requests.post(url, headers=headers, json=payload, timeout=120)
+    except requests.exceptions.ConnectionError:
+        # Fallback: try OpenAI if OmniRoute unavailable and we have an API key
+        if use_omniroute and OPENAI_KEY:
+            fallback_url = f"{OPENAI_BASE}/chat/completions"
+            payload["model"] = model
+            resp = requests.post(fallback_url, headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {OPENAI_KEY}",
+            }, json=payload, timeout=120)
+        else:
+            raise RuntimeError(f"Cannot connect to {base_url}")
 
     if resp.status_code != 200:
-        raise RuntimeError(f"OmniRoute error ({resp.status_code}): {resp.text[:300]}")
+        raise RuntimeError(f"API error ({resp.status_code}): {resp.text[:300]}")
 
-    # Handle SSE streaming response
-    content_type = resp.headers.get("Content-Type", "")
-    if "text/event-stream" in content_type:
-        # Parse SSE manually
+    raw = resp.content.decode("utf-8", errors="replace")
+
+    # OmniRoute returns SSE even when stream=false
+    if raw.strip().startswith("data:"):
         parts = []
-        for line in resp.text.split("\n"):
+        for line in raw.split("\n"):
             line = line.strip()
             if line.startswith("data: ") and line != "data: [DONE]":
                 try:
@@ -60,14 +89,19 @@ def omni_complete(prompt: str, model: str = None, system: str = None) -> str:
                 except (json.JSONDecodeError, KeyError, IndexError):
                     continue
         return "".join(parts).strip()
-    else:
-        # Normal JSON response
-        data = resp.json()
+
+    # Normal JSON response (OpenAI, etc.)
+    try:
+        data = json.loads(raw)
         return data["choices"][0]["message"]["content"].strip()
+    except (json.JSONDecodeError, KeyError, IndexError) as e:
+        raise RuntimeError(f"Failed to parse response: {e}\nRaw: {raw[:500]}")
 
 
 def resolve_variables(text: str, vars: dict) -> str:
     """Replace {{var}} placeholders."""
+    if not text:
+        return text
     for k, v in vars.items():
         text = text.replace("{{" + k + "}}", str(v))
     return text
@@ -92,7 +126,6 @@ def resolve_step_context(step: dict, vars: dict, step_outputs: dict) -> str:
     """Build context for a step from previous step outputs."""
     ctx_parts = []
 
-    # Direct context field
     if "context" in step:
         ctx = step["context"]
         if isinstance(ctx, str):
@@ -102,21 +135,32 @@ def resolve_step_context(step: dict, vars: dict, step_outputs: dict) -> str:
                     with open(Path(fpath).expanduser()) as f:
                         ctx_parts.append(f.read())
                 except Exception as e:
-                    print(f"  ⚠ Could not read context file {fpath}: {e}")
+                    print(f"  ⚠ Could not read {fpath}: {e}")
+            elif ctx.startswith("step://"):
+                step_id = ctx[7:]
+                if step_id in step_outputs:
+                    ctx_parts.append(step_outputs[step_id])
             else:
                 ctx_parts.append(resolve_variables(ctx, vars))
         elif isinstance(ctx, list):
             for item in ctx:
-                if isinstance(item, str) and item.startswith("step://"):
-                    step_id = item[7:]
-                    if step_id in step_outputs:
-                        ctx_parts.append(step_outputs[step_id])
-                elif isinstance(item, str):
-                    ctx_parts.append(resolve_variables(item, vars))
+                if isinstance(item, str):
+                    if item.startswith("step://"):
+                        sid = item[7:]
+                        if sid in step_outputs:
+                            ctx_parts.append(step_outputs[sid])
+                    elif item.startswith("file://"):
+                        fpath = item[7:]
+                        try:
+                            with open(Path(fpath).expanduser()) as f:
+                                ctx_parts.append(f.read())
+                        except Exception as e:
+                            print(f"  ⚠ Could not read {fpath}: {e}")
+                    else:
+                        ctx_parts.append(resolve_variables(item, vars))
                 else:
                     ctx_parts.append(str(item))
 
-    # Auto-include previous step output
     prev_id = step.get("context_from")
     if prev_id and prev_id in step_outputs:
         ctx_parts.append(step_outputs[prev_id])
@@ -132,29 +176,26 @@ def run_workflow(wf_path: str, vars: dict):
     step_outputs = {}
 
     print(f"\n{'='*60}")
-    print(f"  🔄 aiflow v{VERSION} — Workflow: {Path(wf_path).name}")
-    print(f"  📋 Steps: {len(steps)}")
+    print(f"  🔄 aiflow v{VERSION} — {Path(wf_path).name}")
+    print(f"  📋 {len(steps)} step(s)")
     if vars:
-        print(f"  📌 Variables: {', '.join(f'{k}={v}' for k, v in vars.items())}")
+        print(f"  📌 {', '.join(f'{k}={v}' for k, v in vars.items())}")
     print(f"{'='*60}\n")
 
     for i, step in enumerate(steps):
         step_id = step.get("id", f"step-{i+1}")
         model = step.get("model", DEFAULT_MODEL)
-        prompt = resolve_variables(step.get("prompt", ""), vars)
-
-        # Handle action steps (fetch, system, etc.)
+        prompt_text = resolve_variables(step.get("prompt", ""), vars)
         action = step.get("action", "llm")
 
         print(f"  [{i+1}/{len(steps)}] {step_id}")
         print(f"  ├ Model: {model}")
 
         if action == "llm":
-            # Build context from previous steps
             context = resolve_step_context(step, vars, step_outputs)
-            full_prompt = prompt
+            full_prompt = prompt_text
             if context:
-                full_prompt = f"Context:\n{context}\n\nTask:\n{prompt}"
+                full_prompt = f"Context:\n{context}\n\nTask:\n{prompt_text}"
 
             sys_msg = step.get("system")
             preview = full_prompt[:80].replace("\n", " ") + ("..." if len(full_prompt) > 80 else "")
@@ -165,18 +206,15 @@ def run_workflow(wf_path: str, vars: dict):
                 result = omni_complete(full_prompt, model, sys_msg)
                 elapsed = (datetime.now() - start).total_seconds()
                 print(f"  └ ✅ Done ({elapsed:.1f}s, {len(result)} chars)")
-
                 step_outputs[step_id] = result
 
-                # Save if requested
-                if "save" in step:
-                    save_path = resolve_variables(step["save"], {**vars, **{k: v[:500] for k, v in step_outputs.items()}})
-                    save_path = save_path.replace("file://", "")
-                    out_path = Path(save_path)
-                    out_path.parent.mkdir(parents=True, exist_ok=True)
-                    out_path.write_text(result)
-                    print(f"     💾 Saved: {out_path}")
-
+                save_path = step.get("save")
+                if save_path:
+                    sp = resolve_variables(save_path, vars)
+                    out = Path(sp)
+                    out.parent.mkdir(parents=True, exist_ok=True)
+                    out.write_text(result)
+                    print(f"     💾 Saved: {out}")
             except Exception as e:
                 print(f"  └ ❌ Error: {e}")
                 if step.get("continue_on_error"):
@@ -188,19 +226,18 @@ def run_workflow(wf_path: str, vars: dict):
             url = resolve_variables(step.get("url", ""), vars)
             print(f"  ├ Fetch: {url}")
             try:
-                resp = requests.get(url, timeout=30, headers={
-                    "User-Agent": "aiflow/1.0"
-                })
-                result = resp.text[:100000]
-                step_outputs[step_id] = result
-                print(f"  └ ✅ Fetched ({len(result)} chars)")
+                resp = requests.get(url, timeout=30, headers={"User-Agent": "aiflow/1.0"})
+                content = resp.text[:100000]
+                step_outputs[step_id] = content
+                print(f"  └ ✅ Fetched ({len(content)} chars)")
 
-                if "save" in step:
-                    save_path = resolve_variables(step["save"], vars)
-                    out_path = Path(save_path)
-                    out_path.parent.mkdir(parents=True, exist_ok=True)
-                    out_path.write_text(result)
-                    print(f"     💾 Saved: {out_path}")
+                save_path = step.get("save")
+                if save_path:
+                    sp = resolve_variables(save_path, vars)
+                    out = Path(sp)
+                    out.parent.mkdir(parents=True, exist_ok=True)
+                    out.write_text(content)
+                    print(f"     💾 Saved: {out}")
             except Exception as e:
                 print(f"  └ ❌ Error: {e}")
                 if not step.get("continue_on_error"):
@@ -209,128 +246,69 @@ def run_workflow(wf_path: str, vars: dict):
         print()
 
     print(f"{'='*60}")
-    print(f"  ✅ Workflow complete! {len(step_outputs)}/{len(steps)} steps successful")
+    print(f"  ✅ Complete! {len(step_outputs)}/{len(steps)} steps successful")
     print(f"{'='*60}\n")
 
 
 def cmd_run(args):
     """Run a workflow."""
-    vars = {}
+    vars_dict = {}
     if args.var:
         for v in args.var:
             if "=" in v:
                 k, val = v.split("=", 1)
-                vars[k] = val
-
-    run_workflow(args.workflow, vars)
+                vars_dict[k] = val
+    run_workflow(args.workflow, vars_dict)
 
 
 def cmd_examples(args):
     """Show example workflows."""
-    examples = {
-        "research": """# research.yml — Research + Article + Summary
-workflow:
-  steps:
-    - id: research
-      prompt: >-
-        Deep research on {{topic}}. Provide key facts, statistics, trends,
-        and expert opinions in a structured format.
-      model: auto/best-chat
-      save: output/{{topic}}-research.md
+    examples_dir = Path(__file__).parent / "examples"
+    if not examples_dir.exists():
+        print("No examples directory found.")
+        return
 
-    - id: article
-      prompt: >-
-        Write a comprehensive blog post (1500 words) about {{topic}}.
-        Use the research provided. Professional yet engaging tone.
-      model: auto/best-chat
-      context_from: research
-      save: output/{{topic}}-article.md
-
-    - id: summary
-      prompt: >-
-        Write 3 social media posts about this article. Each max 280 chars.
-      model: groq/llama-3.1-8b-instant
-      context_from: research
-      save: output/{{topic}}-social.txt
-""",
-        "translate": """# translate.yml — Multi-language translation
-workflow:
-  steps:
-    - id: original
-      prompt: "Write a short paragraph about {{topic}} in Russian"
-      model: auto/best-chat
-      save: output/original.md
-
-    - id: to_english
-      prompt: "Translate to English"
-      context_from: original
-      model: auto/best-chat
-      save: output/english.md
-
-    - id: to_chinese
-      prompt: "Translate to Chinese"
-      context_from: original
-      model: auto/best-chat
-      save: output/chinese.md
-""",
-        "code-review": """# code-review.yml — AI Code Review
-workflow:
-  steps:
-    - id: fetch_diff
-      action: fetch
-      url: "{{diff_url}}"
-      save: raw/diff.txt
-
-    - id: review
-      prompt: >-
-        Review this code diff. Check for:
-        1. Bugs and logic errors
-        2. Security vulnerabilities
-        3. Performance issues
-        4. Code style violations
-        5. Suggest improvements
-      model: auto/best-reasoning
-      context_from: fetch_diff
-      save: output/review.md
-""",
-    }
-
-    print(f"\n  📚 aiflow — Example Workflows\n")
-    for name, yml in examples.items():
-        print(f"  ── {name} ──")
-        for line in yml.strip().split("\n"):
-            print(f"  {line}")
-        print()
-
-    print(f"  Run: aiflow run examples.yml topic=\"your topic\"\n")
+    for f in sorted(examples_dir.glob("*.yml")):
+        print(f"\n  ── {f.stem} ──")
+        print(f.read_text())
+    print("\n  Run: aiflow run examples/NAME.yml topic=\"your topic\"\n")
 
 
 def cmd_donate(args):
     """Show donation addresses."""
-    art = """
+    print("""
      ╔══════════════════════════════════╗
      ║     💖 Support aiflow 💖          ║
      ║  If you find this tool useful,    ║
      ║  consider a donation!             ║
      ╚══════════════════════════════════╝
-    """
-    print(art)
-    print(f"  TON:")
-    print(f"    UQBLEYICSbxKZAajJspddpVYEFtvCcnp7gUpHDZpTChqqAoC")
-    print()
-    print(f"  Ethereum (ERC-20 / any EVM):")
-    print(f"    0xD26f0efE6A8F11e127c3Af3D6163BD458a1693c3")
-    print()
-    print(f"  USDT (TRC-20 / TON / ERC-20):")
-    print(f"    Contact: @hypeflow_ton")
-    print()
-    print(f"  Buy me a coffee: https://ko-fi.com/aiflow")
-    print()
+
+  TON:          UQBLEYICSbxKZAajJspddpVYEFtvCcnp7gUpHDZpTChqqAoC
+  USDT (TON):   UQAoI2i8P9-JeZhvGSUwKnymVyY5cb-1Rg7pdqoWMNena7DP
+  Ethereum:     0xD26f0efE6A8F11e127c3Af3D6163BD458a1693c3
+  Bitcoin:      bc1qd8sa7e4f696wmcyszuxh9snqt2n66zrhz9g80j
+""")
 
 
-def cmd_version(args):
-    """Show version."""
-    print(f"aiflow v{VERSION}")
+def cmd_init(args):
+    """Create a sample workflow.yml."""
+    target = Path(args.path or ".")
+    wf_file = target / "workflow.yml"
+    if wf_file.exists():
+        print(f"  ⚠ {wf_file} already exists")
+        return
+
+    content = """# aiflow workflow
+workflow:
+  steps:
+    - id: step1
+      prompt: "Write about {{topic}}"
+      model: auto/best-chat
+      save: output/{{topic}}.md
+"""
+    wf_file.write_text(content)
+    print(f"  ✅ Created {wf_file}")
+    print(f"  Run: aiflow run workflow.yml topic=\"your topic\"")
 
 
 def main():
@@ -342,10 +320,10 @@ def main():
 Examples:
   aiflow run workflow.yml
   aiflow run research.yml topic="AI agents"
-  aiflow run translate.yml topic="Hello world"
+  aiflow init
   aiflow examples
   aiflow donate
-        """
+        """,
     )
     parser.add_argument("--version", action="version", version=f"aiflow v{VERSION}")
     sub = parser.add_subparsers(dest="command")
@@ -353,6 +331,9 @@ Examples:
     p_run = sub.add_parser("run", help="Run a workflow YAML file")
     p_run.add_argument("workflow", help="Path to workflow YAML file")
     p_run.add_argument("-v", "--var", action="append", help="Variables: key=value")
+
+    p_init = sub.add_parser("init", help="Create a sample workflow.yml")
+    p_init.add_argument("path", nargs="?", default=".", help="Directory")
 
     sub.add_parser("examples", help="Show example workflows")
     sub.add_parser("donate", help="Show donation addresses")
@@ -362,6 +343,8 @@ Examples:
 
     if args.command == "run":
         cmd_run(args)
+    elif args.command == "init":
+        cmd_init(args)
     elif args.command == "examples":
         cmd_examples(args)
     elif args.command == "donate":
