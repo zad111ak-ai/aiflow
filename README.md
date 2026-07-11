@@ -18,14 +18,19 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/zad111ak-ai/aiflow/stargazers">
-    <img src="https://img.shields.io/badge/⭐-Star_on_GitHub-yellow?style=flat-square" alt="Stars"/>
+  <a href="https://github.com/zad111ak-ai/aiflow/actions">
+    <img src="https://github.com/zad111ak-ai/aiflow/actions/workflows/ci.yml/badge.svg" alt="CI"/>
   </a>
   <a href="LICENSE">
     <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License"/>
   </a>
-  <img src="https://img.shields.io/badge/python-3.8+-green?style=flat-square" alt="Python"/>
-  <img src="https://img.shields.io/badge/🤖-OmniRoute-purple?style=flat-square" alt="OmniRoute"/>
+  <img src="https://img.shields.io/badge/python-3.8+-green?style=flat-square" alt="Python 3.8+"/>
+  <a href="https://github.com/zad111ak-ai/aiflow/releases">
+    <img src="https://img.shields.io/github/v/release/zad111ak-ai/aiflow?style=flat-square" alt="Release"/>
+  </a>
+  <a href="https://github.com/zad111ak-ai/aiflow/stargazers">
+    <img src="https://img.shields.io/github/stars/zad111ak-ai/aiflow?style=flat-square" alt="Stars"/>
+  </a>
 </p>
 
 ---
