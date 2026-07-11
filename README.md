@@ -31,6 +31,7 @@
   <a href="https://github.com/zad111ak-ai/aiflow/stargazers">
     <img src="https://img.shields.io/github/stars/zad111ak-ai/aiflow?style=flat-square" alt="Stars"/>
   </a>
+  <a href=".github/FUNDING.yml"><img src="https://img.shields.io/badge/sponsor-donate-purple?style=flat-square" alt="Sponsor"/></a>
 </p>
 
 ---
