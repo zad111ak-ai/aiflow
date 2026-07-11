@@ -266,19 +266,27 @@ Copy `.env.example` to `.env` and configure.
 
 ---
 
-## 💖 Support
+## Support
 
-If aiflow saves you time, consider a donation:
+This project is free and open source. If you find it useful, consider supporting:
 
-**TON:** `UQBLEYICSbxKZAajJspddpVYEFtvCcnp7gUpHDZpTChqqAoC`
 
-**USDT (TON):** `UQAoI2i8P9-JeZhvGSUwKnymVyY5cb-1Rg7pdqoWMNena7DP`
+<p align="center">
+  <a href="https://tonviewer.com/UQBLEYICSbxKZAajJspddpVYEFtvCcnp7gUpHDZpTChqqAoC"><img src="https://img.shields.io/badge/TON-donate-0088CC?style=flat-square&logo=telegram" alt="TON"/></a>
+  <a href="https://tonviewer.com/UQAoI2i8P9-JeZhvGSUwKnymVyY5cb-1Rg7pdqoWMNena7DP"><img src="https://img.shields.io/badge/USDT%20(TON)-donate-26A17B?style=flat-square&logo=tether" alt="USDT"/></a>
+  <a href="https://etherscan.io/address/0xD26f0efE6A8F11e127c3Af3D6163BD458a1693c3"><img src="https://img.shields.io/badge/Ethereum-donate-3C3C3D?style=flat-square&logo=ethereum" alt="Ethereum"/></a>
+  <a href="https://solscan.io/account/99EtqBVTeF5UNp9a1oPi18iVXbXptTG7YQ6JeJvXMUJK"><img src="https://img.shields.io/badge/Solana-donate-9945FF?style=flat-square&logo=solana" alt="Solana"/></a>
+  <a href="https://blockchain.info/address/bc1qd8sa7e4f696wmcyszuxh9snqt2n66zrhz9g80j"><img src="https://img.shields.io/badge/Bitcoin-donate-F7931A?style=flat-square&logo=bitcoin" alt="Bitcoin"/></a>
+</p>
+| Asset | Address |
+|---|---|
+| **TON** | `UQBLEYICSbxKZAajJspddpVYEFtvCcnp7gUpHDZpTChqqAoC` |
+| **USDT (TON)** | `UQAoI2i8P9-JeZhvGSUwKnymVyY5cb-1Rg7pdqoWMNena7DP` |
+| **Solana** | `99EtqBVTeF5UNp9a1oPi18iVXbXptTG7YQ6JeJvXMUJK` |
+| **Ethereum (ERC-20)** | `0xD26f0efE6A8F11e127c3Af3D6163BD458a1693c3` |
+| **Bitcoin** | `bc1qd8sa7e4f696wmcyszuxh9snqt2n66zrhz9g80j` |
 
-**Ethereum (ERC-20):** `0xD26f0efE6A8F11e127c3Af3D6163BD458a1693c3`
-
-**Bitcoin:** `bc1qd8sa7e4f696wmcyszuxh9snqt2n66zrhz9g80j`
-
-Or just ⭐ the repo — that helps too!
+Or just **star the repo** — that helps too!
 
 ---
 
