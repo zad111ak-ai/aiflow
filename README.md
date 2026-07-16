@@ -15,6 +15,12 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/zad111ak-ai/aiflow/stargazers"><img src="https://img.shields.io/github/stars/zad111ak-ai/aiflow?style=social" alt="GitHub stars"></a>
+  <a href="https://github.com/zad111ak-ai/aiflow/graphs/contributors"><img src="https://img.shields.io/github/contributors/zad111ak-ai/aiflow" alt="GitHub contributors"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="License"></a>
+</p>
+
+<p align="center">
   <a href="LICENSE">
     <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License"/>
   </a>
