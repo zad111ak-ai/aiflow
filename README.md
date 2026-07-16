@@ -1,96 +1,222 @@
 <p align="center">
-  <img src="logo.svg" width="180" alt="aiflow logo"/>
+  <a href="#russian">🇷🇺 Русский</a> &nbsp;|&nbsp; <a href="#english">🇬🇧 English</a>
 </p>
 
 <h1 align="center">🔥 aiflow</h1>
 
 <p align="center">
   <b>AI Workflow Runner — YAML configs, any model, one terminal</b>
-  <br>
-  Write workflows. Pick models. Get results.
 </p>
 
 <p align="center">
   <a href="#-quick-start">🚀 Quick Start</a> •
   <a href="#-examples">📚 Examples</a> •
-  <a href="#-why-aiflow">❓ Why aiflow</a> •
-  <a href="#-docs">📖 Docs</a>
+  <a href="#-why-aiflow">❓ Why aiflow</a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/zad111ak-ai/aiflow/actions">
-    <img src="https://github.com/zad111ak-ai/aiflow/actions/workflows/ci.yml/badge.svg" alt="CI"/>
-  </a>
   <a href="LICENSE">
     <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License"/>
   </a>
   <img src="https://img.shields.io/badge/python-3.8+-green?style=flat-square" alt="Python 3.8+"/>
-  <a href="https://github.com/zad111ak-ai/aiflow/releases">
-    <img src="https://img.shields.io/github/v/release/zad111ak-ai/aiflow?style=flat-square" alt="Release"/>
-  </a>
-  <a href="https://github.com/zad111ak-ai/aiflow/stargazers">
-    <img src="https://img.shields.io/github/stars/zad111ak-ai/aiflow?style=flat-square" alt="Stars"/>
-  </a>
-  <a href=".github/FUNDING.yml"><img src="https://img.shields.io/badge/sponsor-donate-purple?style=flat-square" alt="Sponsor"/></a>
 </p>
 
 ---
 
-## ❓ Why aiflow
+<a id="russian"></a>
+## 🔥 Что такое aiflow
 
-**aiflow** runs AI prompt chains defined in a single YAML file.
+**aiflow** запускает AI-воркфлоу, описанные в YAML-файле.
 
-Instead of:
-1. Open ChatGPT → paste prompt → wait → copy result
-2. Open another model → paste context → repeat
-3. Manually save to files
+**Без aiflow:**
+1. Открыл ChatGPT → вставил промпт → скопировал результат
+2. Открыл другую модель → вставил контекст → повторил
+3. Вручную сохранил в файлы
 
-…you write **one YAML**, run **one command**, get everything done.
-
-**Without aiflow:** hours of manual copy-paste between tabs.  
-**With aiflow:** 30 seconds and your research → article → social posts are ready.
+**С aiflow:**
+```bash
+aiflow run research.yml topic="AI агенты"
+```
+→ `research.md` + `article.md` + `social-posts.md`
 
 ---
 
-## ✨ What makes it different
+### Почему aiflow
 
-Unlike other AI CLI tools (aichat, shell_gpt, fabric) that lock you into one provider:
+В отличие от других AI CLI (aichat, shell_gpt, fabric), которые привязывают к одному провайдеру:
 
-**aiflow routes through [OmniRoute](https://github.com/zad111ak-ai/omniroute)** — an AI gateway with **680+ models** across **29+ providers**.
+**aiflow роутит через [OmniRoute](https://github.com/zad111ak-ai/omniroute)** — AI-шлюз с **680+ моделями** от **29+ провайдеров**.
 
-Pick any model per step in YAML:
-- `auto/best-chat` — best available chat model
-- `auto/best-reasoning` — for complex reasoning tasks
-- `groq/llama-3.1-8b-instant` — fast & cheap
+Выбирай любую модель для каждого шага:
+- `auto/best-chat` — лучшая модель
+- `auto/best-reasoning` — для сложных задач
+- `groq/llama-3.1-8b-instant` — быстрая и дешёвая
 - `deepseek/deepseek-chat` — DeepSeek
-- `auto/best-coding` — code generation
+- `auto/best-coding` — генерация кода
 
-No signing up for 10 services. One endpoint, all models.
+Одна точка входа, все модели. Без регистрации на 10 сервисах.
 
 ---
 
-## 🚀 Quick Start
-
-### Installation
+### 🚀 Быстрый старт
 
 ```bash
 pip install aiflow
-```
-
-Or clone it:
-
-```bash
+# Или:
 git clone https://github.com/zad111ak-ai/aiflow.git
-cd aiflow
-pip install -r requirements.txt
+cd aiflow && pip install -r requirements.txt
 ```
 
-**Requirements:** Python 3.8+, running OmniRoute at `localhost:3000`.
-
-### Your first workflow
+**Требования:** Python 3.8+, OmniRoute на `localhost:3000`.
 
 ```bash
+# Первый воркфлоу
 mkdir -p my-workflows && cd my-workflows
+
+cat > hello.yml << 'EOF'
+workflow:
+  steps:
+    - id: greet
+      prompt: "Скажи привет креативно, одно предложение"
+      model: auto/best-chat
+EOF
+
+aiflow run hello.yml
+```
+
+### С переменными
+
+```bash
+aiflow run research.yml topic="ИИ агенты в 2026"
+```
+
+---
+
+## 📚 Примеры
+
+### 🔬 Исследование → Статья → Соцсети
+
+```yaml
+workflow:
+  steps:
+    - id: research
+      prompt: >-
+        Глубокое исследование темы {{topic}}. Ключевые факты,
+        статистика, тренды, мнения экспертов в markdown.
+      model: auto/best-chat
+      save: output/{{topic}}-research.md
+
+    - id: article
+      prompt: >-
+        Напиши блог-пост (800-1000 слов) на тему {{topic}}.
+        Профессиональный, но живой стиль.
+      model: auto/best-chat
+      context_from: research
+      save: output/{{topic}}-article.md
+
+    - id: social
+      prompt: >-
+        Создай 5 постов для соцсетей, каждый до 280 символов.
+      model: groq/llama-3.1-8b-instant
+      context_from: research
+      save: output/{{topic}}-social.txt
+```
+
+### 🌐 Мультиязычный перевод
+
+```yaml
+workflow:
+  steps:
+    - id: original
+      prompt: "Напиши про {{topic}} на русском"
+      model: auto/best-chat
+      save: output/ru.md
+
+    - id: english
+      prompt: "Переведи на английский"
+      context_from: original
+      model: auto/best-chat
+      save: output/en.md
+```
+
+### 💻 Code Review
+
+```yaml
+workflow:
+  steps:
+    - id: fetch_diff
+      action: fetch
+      url: "{{diff_url}}"
+      save: raw/diff.txt
+
+    - id: review
+      prompt: "Проверь дифф на баги, уязвимости, производительность"
+      model: auto/best-reasoning
+      context_from: fetch_diff
+      save: output/review.md
+```
+
+---
+
+## 📖 YAML-формат
+
+```yaml
+workflow:
+  steps:
+    - id: step_name       # уникальный ID
+      prompt: "..."        # промпт с {{переменными}}
+      model: model_id      # модель OmniRoute
+      system: "..."        # системный промпт (опционально)
+      context:             # контекст (опционально)
+        - step://step_id   # выход другого шага
+        - file://path      # файл
+      context_from: id     # шорткат для одного шага
+      save: path           # сохранить результат
+      action: llm          # llm (по умолчанию) | fetch
+      continue_on_error: false
+```
+
+### Команды
+
+| Команда | Описание |
+|---|---|
+| `aiflow run <file.yml>` | Запуск воркфлоу |
+| `aiflow run <file.yml> -v key=val` | С переменными |
+| `aiflow examples` | Встроенные примеры |
+| `aiflow donate` | Крипто-кошельки для донатов |
+| `aiflow --version` | Версия |
+
+### Переменные
+
+Передавай через `-v key=value`. Используй в YAML как `{{key}}`.
+
+---
+
+## ⚙️ Переменные окружения
+
+| Переменная | По умолчанию | Описание |
+|---|---|---|
+| `OMNIROUTE_BASE_URL` | http://localhost:3000/v1 | OmniRoute эндпоинт |
+| `OMNIROUTE_API_KEY` | — | API-ключ (если нужен) |
+| `AIFLOW_DEFAULT_MODEL` | auto/best-chat | Модель по умолчанию |
+
+---
+
+<a id="english"></a>
+## 🇬🇧 English
+
+**aiflow** runs AI prompt chains defined in a single YAML file.
+
+Instead of copy-pasting between tabs for hours, write **one YAML**, run **one command**, get everything done.
+
+### Why aiflow
+
+Routes through [OmniRoute](https://github.com/zad111ak-ai/omniroute) — **680+ models** across **29+ providers**. One endpoint, all models.
+
+### Quick Start
+
+```bash
+pip install aiflow
 
 cat > hello.yml << 'EOF'
 workflow:
@@ -103,190 +229,27 @@ EOF
 aiflow run hello.yml
 ```
 
-### With variables
+### What it does
 
-```bash
-aiflow run research.yml topic="AI agents in 2026"
-```
+- **Research → Article → Social posts** — full content pipeline in 30 seconds
+- **Multi-language translation** — one source, multiple targets
+- **Web scraping + AI analysis** — fetch + summarize in one step
+- **Code review** — fetch diff → review → suggestions
 
----
+### Requirements
 
-## 📚 Examples
-
-### 🔬 Research → Article → Social posts
-
-Full content pipeline in one go.
-
-```yaml
-workflow:
-  steps:
-    - id: research
-      prompt: >-
-        Deep research on {{topic}}. Provide key facts, stats,
-        trends, and expert opinions in structured markdown.
-      model: auto/best-chat
-      save: output/{{topic}}-research.md
-
-    - id: article
-      prompt: >-
-        Write a compelling blog post (800-1000 words) about {{topic}}.
-        Professional yet engaging tone.
-      model: auto/best-chat
-      context_from: research
-      save: output/{{topic}}-article.md
-
-    - id: social
-      prompt: >-
-        Create 5 social posts about this topic, each max 280 chars.
-      model: groq/llama-3.1-8b-instant
-      context_from: research
-      save: output/{{topic}}-social.txt
-```
-
-```bash
-aiflow run research.yml topic="Quantum computing"
-# → output/Quantum computing-research.md
-# → output/Quantum computing-article.md
-# → output/Quantum computing-social.txt
-```
-
-### 🌐 Multi-language translation
-
-```yaml
-workflow:
-  steps:
-    - id: original
-      prompt: "Write about {{topic}} in Russian"
-      model: auto/best-chat
-      save: output/original.md
-
-    - id: to_english
-      prompt: "Translate to English"
-      context_from: original
-      model: auto/best-chat
-      save: output/english.md
-
-    - id: to_chinese
-      prompt: "Translate to Chinese"
-      context_from: original
-      model: auto/best-chat
-      save: output/chinese.md
-```
-
-### 📡 Web scraping + AI analysis
-
-```yaml
-workflow:
-  steps:
-    - id: fetch
-      action: fetch
-      url: "https://news.ycombinator.com/"
-      save: raw/hackernews.md
-
-    - id: analyze
-      prompt: "Summarize top 10 posts, identify trends"
-      context_from: fetch
-      model: auto/best-chat
-```
-
-### 💻 Code review
-
-```yaml
-workflow:
-  steps:
-    - id: fetch_diff
-      action: fetch
-      url: "{{diff_url}}"
-      save: raw/diff.txt
-
-    - id: review
-      prompt: >-
-        Review this code diff for bugs, security vulnerabilities,
-        performance issues. Suggest improvements.
-      model: auto/best-reasoning
-      context_from: fetch_diff
-      save: output/review.md
-```
-
-### See all examples
-
-```bash
-aiflow examples
-```
+Python 3.8+, OmniRoute at `localhost:3000`.
 
 ---
 
-## 📖 Docs
+## 💸 Donations / Донаты
 
-### Workflow YAML format
-
-```yaml
-workflow:               # required
-  steps:                # required, at least 1
-    - id: step_name     # unique step identifier
-      prompt: "..."     # prompt with {{variables}}
-      model: model_id   # OmniRoute model ID
-      system: "..."     # optional system prompt
-      context:          # optional context sources
-        - step://step_id    # output from another step
-        - file://path       # content from a file
-      context_from: step_id  # shorthand for single step
-      save: path        # optional, save output to file
-      action: llm       # optional: llm (default) | fetch
-      continue_on_error: false
-```
-
-### Commands
-
-| Command | Description |
+| Валюта / Currency | Адрес / Address |
 |---|---|
-| `aiflow run <file.yml>` | Run a workflow |
-| `aiflow run <file.yml> -v key=val` | Run with variables |
-| `aiflow examples` | Show built-in examples |
-| `aiflow donate` | Show donation addresses |
-| `aiflow --version` | Show version |
-
-### Variables
-
-Pass variables with `-v key=value`. Use them in YAML as `{{key}}`.
-
-Variables get resolved in: `prompt`, `context` (strings), `save` path, `url` (for fetch actions).
-
----
-
-## ⚙️ Environment
-
-| Variable | Default | Description |
-|---|---|---|
-| `OMNIROUTE_BASE_URL` | http://localhost:3000/v1 | OmniRoute endpoint |
-| `OMNIROUTE_API_KEY` | — | API key (if required) |
-| `AIFLOW_DEFAULT_MODEL` | auto/best-chat | Default model |
-
-Copy `.env.example` to `.env` and configure.
-
----
-
-## Support
-
-This project is free and open source. If you find it useful, consider supporting:
-
-
-<p align="center">
-  <a href="https://tonviewer.com/UQBLEYICSbxKZAajJspddpVYEFtvCcnp7gUpHDZpTChqqAoC"><img src="https://img.shields.io/badge/TON-donate-0088CC?style=flat-square&logo=telegram" alt="TON"/></a>
-  <a href="https://tonviewer.com/UQAoI2i8P9-JeZhvGSUwKnymVyY5cb-1Rg7pdqoWMNena7DP"><img src="https://img.shields.io/badge/USDT%20(TON)-donate-26A17B?style=flat-square&logo=tether" alt="USDT"/></a>
-  <a href="https://etherscan.io/address/0xD26f0efE6A8F11e127c3Af3D6163BD458a1693c3"><img src="https://img.shields.io/badge/Ethereum-donate-3C3C3D?style=flat-square&logo=ethereum" alt="Ethereum"/></a>
-  <a href="https://solscan.io/account/99EtqBVTeF5UNp9a1oPi18iVXbXptTG7YQ6JeJvXMUJK"><img src="https://img.shields.io/badge/Solana-donate-9945FF?style=flat-square&logo=solana" alt="Solana"/></a>
-  <a href="https://blockchain.info/address/bc1qd8sa7e4f696wmcyszuxh9snqt2n66zrhz9g80j"><img src="https://img.shields.io/badge/Bitcoin-donate-F7931A?style=flat-square&logo=bitcoin" alt="Bitcoin"/></a>
-</p>
-| Asset | Address |
-|---|---|
-| **TON** | `UQBLEYICSbxKZAajJspddpVYEFtvCcnp7gUpHDZpTChqqAoC` |
+| **BTC** | `bc1qd8sa7e4f696wmcyszuxh9snqt2n66zrhz9g80j` |
+| **ETH** | `0xD26f0efE6A8F11e127c3Af3D6163BD458a1693c3` |
 | **USDT (TON)** | `UQAoI2i8P9-JeZhvGSUwKnymVyY5cb-1Rg7pdqoWMNena7DP` |
-| **Solana** | `99EtqBVTeF5UNp9a1oPi18iVXbXptTG7YQ6JeJvXMUJK` |
-| **Ethereum (ERC-20)** | `0xD26f0efE6A8F11e127c3Af3D6163BD458a1693c3` |
-| **Bitcoin** | `bc1qd8sa7e4f696wmcyszuxh9snqt2n66zrhz9g80j` |
-
-Or just **star the repo** — that helps too!
+| **SOL** | `99EtqBVTeF5UNp9a1oPi18iVXbXptTG7YQ6JeJvXMUJK` |
 
 ---
 
